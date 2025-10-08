@@ -1,7 +1,6 @@
-// app/index.tsx
 import { useNavigation } from '@react-navigation/native';
 import { TrendingUp } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,21 +9,58 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
+import { authService } from '../services/authService';
 
 export default function Index() {
   const [isLogin, setIsLogin] = useState(true);
   const navigation = useNavigation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("testing@gmail.com");
+  const [password, setPassword] = useState("okamgba1");
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    console.log(isLogin ? "Logging in..." : "Registering...", {
-      email,
-      password,
-      name,
-    });
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        navigation.navigate('Main' as never);
+      }
+    } catch (error) {
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (isLogin) {
+        await authService.signIn(email, password);
+        navigation.navigate('Main' as never);
+      } else {
+        if (!name) {
+          Alert.alert('Error', 'Please enter your full name');
+          setLoading(false);
+          return;
+        }
+        await authService.signUp(email, password, name);
+        navigation.navigate('Main' as never);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,10 +78,8 @@ export default function Index() {
           Professional Trading Signals & Analysis
         </Text>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Main' as never)}>
-        <Text style={{ color: "blue", fontSize: 18 }}>Proceed to Dashboard</Text>
-      </TouchableOpacity>
-      
+
+
         {/* Toggle Buttons */}
         <View style={styles.toggleRow}>
           <TouchableOpacity
@@ -97,10 +131,18 @@ export default function Index() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-          <Text style={styles.submitText}>
-            {isLogin ? "Login" : "Create Account"}
-          </Text>
+        <TouchableOpacity
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.submitText}>
+              {isLogin ? "Login" : "Create Account"}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {!isLogin && (
@@ -173,6 +215,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
+  },
+  submitBtnDisabled: {
+    opacity: 0.6,
   },
   submitText: { color: "white", fontSize: 16, fontWeight: "bold" },
   terms: {
